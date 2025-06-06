@@ -5,7 +5,7 @@ const xml2js = require("xml2js");
 const app = express();
 app.use(express.json());
 
-const VRS_API_URL = "https://api.videcom.com/xmlapi"; // Substitua pela URL real
+const VRS_API_URL = "https://customertest.videcom.com/xmlapi"; // Substitua pela URL real
 const TOKEN = process.env.TOKEN; // Fornecido pela Videcom
 
 // Função para converter XML para JSON
