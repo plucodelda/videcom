@@ -8,7 +8,7 @@ app.use(express.json()); // Para receber JSON no corpo da requisição
 app.use(morgan("combined"));
 
 // ⚠️ Configure essas variáveis com seus dados reais:
-const VRS_API_URL = "https://api.videcom.com/xmlapi"; // Substitua pela URL real da Videcom
+const VRS_API_URL = "https://api.videcom.com/xmlservice/api.asmx"; // Substitua pela URL real da Videcom
 const TOKEN = process.env.TOKEN; // Substitua pelo token fornecido
 
 // Utilitário para converter XML em JSON
