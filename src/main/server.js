@@ -6,7 +6,7 @@ const app = express();
 const PORT = 3000;
 
 // Exemplo de token, IP e sinecode - substitua pelos reais
-const VRS_ENDPOINT = "https://api.videcom.com/vrsxml";
+const VRS_ENDPOINT = "https://api.videcom.com/xmlservice/api.asmx";
 const VRS_TOKEN = "E7ATVw5LGLMCx96JJ9RDM30KwC3xc746/XtetqSBOwI=";
 
 app.get("/availability", async (req, res) => {
