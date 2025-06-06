@@ -1,9 +1,11 @@
 const express = require("express");
 const axios = require("axios");
 const xml2js = require("xml2js");
+var morgan = require("morgan");
 
 const app = express();
 app.use(express.json());
+app.use(morgan("combined"));
 
 const VRS_API_URL = "https://customertest.videcom.com/xmlapi"; // Substitua pela URL real
 const TOKEN = process.env.TOKEN; // Fornecido pela Videcom

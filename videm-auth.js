@@ -1,10 +1,12 @@
 const express = require("express");
 const axios = require("axios");
+var morgan = require("morgan");
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+app.use(morgan("combined"));
 
 // Rota para autenticação
 app.post("/auth/token", async (req, res) => {

@@ -1,10 +1,13 @@
 const express = require("express");
 const axios = require("axios");
 const xml2js = require("xml2js");
+var morgan = require("morgan");
 require("dotenv").config();
 
 const app = express();
 const PORT = 3000;
+
+app.use(morgan("combined"));
 
 // ✅ Endpoint correto com o código da companhia
 const API_URL =
