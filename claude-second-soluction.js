@@ -276,11 +276,7 @@ function validateToken(req, res, next) {
 // 1. Endpoint para criar uma nova reserva (PNR) - CORRIGIDO
 app.post("/api/bookings", validateToken, async (req, res) => {
   try {
-    const {
-      passengerName, // Obrigatório: Nome do passageiro (ex: "test/testMr")
-      email, // Obrigatório: Email do passageiro (ex: "test@videcom.com")
-      title = "MR", // Opcional: Título (MR, MRS, MS, etc.)
-    } = req.body;
+    const { passengerName, email, title = "MR" } = req.body;
 
     if (!passengerName || !email) {
       return res.status(400).json({
@@ -293,10 +289,11 @@ app.post("/api/bookings", validateToken, async (req, res) => {
       });
     }
 
-    // Comando VRS para criar PNR com nome e email
     const command = `-1${passengerName}^9-1E*${email}^e*r~x`;
 
-    // Verificar se há erro na resposta antes de processar
+    // ✅ Aqui estava faltando esta linha!
+    const response = await sendVRSCommand(req.token, command);
+
     if (
       typeof response === "object" &&
       response._ &&
@@ -305,6 +302,7 @@ app.post("/api/bookings", validateToken, async (req, res) => {
       return res.status(400).json({
         error: "VRS API Error",
         vrsError: response._,
+        token: req.token,
         details: getVRSErrorMessage(response._),
         hint:
           response._ === "Error 102"
@@ -313,7 +311,6 @@ app.post("/api/bookings", validateToken, async (req, res) => {
       });
     }
 
-    // Tentar fazer parse da resposta se for XML
     let parsedResponse = response;
     let rloc = null;
 
@@ -336,7 +333,7 @@ app.post("/api/bookings", validateToken, async (req, res) => {
       message: "Booking created successfully",
       data: parsedResponse,
       rloc: rloc,
-      rawResponse: response, // Para debug
+      rawResponse: response,
     });
   } catch (error) {
     res.status(500).json({
@@ -613,6 +610,7 @@ app.post("/api/auth/validate", validateToken, async (req, res) => {
         error: "Invalid token or authentication failed",
         vrsError: response._,
         details: getVRSErrorMessage(response._),
+        token: req.token,
       });
     }
 
@@ -625,6 +623,7 @@ app.post("/api/auth/validate", validateToken, async (req, res) => {
     res.status(401).json({
       error: "Invalid token or authentication failed",
       details: error.message,
+      token: req.token,
     });
   }
 });
