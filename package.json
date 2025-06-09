@@ -15,6 +15,7 @@
   },
   "scripts": {
     "dev-claudes": "nodemon claude-soluction",
+    "dev-c": "nodemon claude-second-soluction.js",
     "dev-claude": "nodemon claude-solucation",
     "dev": "nodemon src/main/server",
     "dev-auth": "nodemon videcom-auth.js",
