@@ -12,7 +12,7 @@ const VRS_ENDPOINT = "PostVRSCommand";
 const DEFAULT_HEADERS = {
   "Content-Type": "text/xml; charset=utf-8",
   Accept: "application/xml",
-  SOAPAction: '"http://tempuri.org/PostVRSCommand"',
+  SOAPAction: "http://tempuri.org/PostVRSCommand",
 };
 
 // Função auxiliar para construir mensagem SOAP XML
