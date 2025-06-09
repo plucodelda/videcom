@@ -14,7 +14,8 @@
     "nodemon": "^3.1.10"
   },
   "scripts": {
-    "dev-claude": "nodemon claude-soluction",
+    "dev-claudes": "nodemon claude-soluction",
+    "dev-claude": "nodemon claude-solucation",
     "dev": "nodemon src/main/server",
     "dev-auth": "nodemon videcom-auth.js",
     "dev2": "nodemon visbility.js",

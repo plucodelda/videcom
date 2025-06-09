@@ -17,16 +17,21 @@ const DEFAULT_HEADERS = {
 
 // Função auxiliar para construir mensagem SOAP XML
 function buildSOAPMessage(token, command) {
+  // Escapar caracteres especiais no comando
+  const escapedCommand = command
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+
   return `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
                xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
                xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <PostVRSCommand xmlns="http://tempuri.org/">
-      <msg>&lt;msg&gt;
-        &lt;Token&gt;${token}&lt;/Token&gt;
-        &lt;Command&gt;${command}&lt;/Command&gt;
-      &lt;/msg&gt;</msg>
+      <msg>&lt;msg&gt;&lt;Token&gt;${token}&lt;/Token&gt;&lt;Command&gt;${escapedCommand}&lt;/Command&gt;&lt;/msg&gt;</msg>
     </PostVRSCommand>
   </soap:Body>
 </soap:Envelope>`;
@@ -36,24 +41,73 @@ function buildSOAPMessage(token, command) {
 async function sendVRSCommand(token, command) {
   try {
     const soapMessage = buildSOAPMessage(token, command);
-    const response = await axios.post(
-      `${VRS_BASE_URL}/${VRS_ENDPOINT}`,
-      soapMessage,
-      {
-        headers: DEFAULT_HEADERS,
-      }
-    );
+
+    console.log("Sending SOAP request to:", `${VRS_BASE_URL}`);
+    console.log("Command:", command);
+    console.log("SOAP Message:", soapMessage);
+
+    const response = await axios.post(VRS_BASE_URL, soapMessage, {
+      headers: DEFAULT_HEADERS,
+      timeout: 30000, // 30 segundos timeout
+      validateStatus: function (status) {
+        return status < 600; // Aceita qualquer status < 600 para debug
+      },
+    });
+
+    console.log("Response status:", response.status);
+    console.log("Response headers:", response.headers);
+    console.log("Response data:", response.data);
+
+    if (response.status >= 400) {
+      throw new Error(
+        `HTTP ${response.status}: ${response.statusText}\nResponse: ${response.data}`
+      );
+    }
 
     // Parse da resposta SOAP para extrair o conteúdo XML interno
-    const parser = new xml2js.Parser({ explicitArray: false });
+    const parser = new xml2js.Parser({
+      explicitArray: false,
+      mergeAttrs: true,
+      normalize: true,
+      normalizeTags: true,
+      trim: true,
+    });
+
     const soapResult = await parser.parseStringPromise(response.data);
-    const vrsResponse =
-      soapResult["soap:Envelope"]["soap:Body"]["PostVRSCommandResponse"][
-        "PostVRSCommandResult"
-      ];
+
+    // Navegar pela estrutura SOAP response
+    let vrsResponse;
+    if (soapResult && soapResult["soap:envelope"]) {
+      vrsResponse =
+        soapResult["soap:envelope"]["soap:body"]["postvrscommandresponse"][
+          "postvrscommandresult"
+        ];
+    } else if (soapResult && soapResult.envelope) {
+      vrsResponse =
+        soapResult.envelope.body.postvrscommandresponse.postvrscommandresult;
+    } else {
+      // Se não conseguir fazer parse SOAP, retorna a resposta bruta
+      vrsResponse = response.data;
+    }
 
     return vrsResponse;
   } catch (error) {
+    console.error("VRS API Error Details:", {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      headers: error.response?.headers,
+    });
+
+    // Mapear erros VRS específicos
+    if (error.response?.status === 500) {
+      const errorData = error.response.data;
+      if (typeof errorData === "string" && errorData.includes("soap:Fault")) {
+        throw new Error(`SOAP Fault: ${errorData}`);
+      }
+    }
+
     throw new Error(`VRS API Error: ${error.message}`);
   }
 }
@@ -195,7 +249,7 @@ app.post("/api/vrs/command", validateToken, async (req, res) => {
 });
 
 // 5. Endpoint para buscar informações de voo
-app.get(" ", validateToken, async (req, res) => {
+app.get("/api/flights/search", validateToken, async (req, res) => {
   try {
     const { origin, destination, date } = req.query;
 
@@ -263,7 +317,55 @@ app.get("/api/health", (req, res) => {
     status: "healthy",
     timestamp: new Date().toISOString(),
     service: "VRS XML Service API",
+    vrsEndpoint: VRS_BASE_URL,
   });
+});
+
+// 8. Endpoint para testar conexão VRS
+app.post("/api/vrs/test", validateToken, async (req, res) => {
+  try {
+    // Comando simples para testar conectividade
+    const testCommand = "H"; // Help command ou similar
+
+    const response = await sendVRSCommand(req.token, testCommand);
+
+    res.json({
+      success: true,
+      message: "VRS connection test successful",
+      response: response,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "VRS connection test failed",
+      details: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+// 9. Endpoint para validar token
+app.post("/api/auth/validate", validateToken, async (req, res) => {
+  try {
+    // Comando mínimo para validar token
+    const validationCommand = "I"; // Info command
+
+    const response = await sendVRSCommand(
+      "E7ATVw5LGLMCx96JJ9RDM30KwC3xc746/XtetqSBOwI=",
+      validationCommand
+    );
+
+    res.json({
+      success: true,
+      message: "Token is valid",
+      response: response,
+    });
+  } catch (error) {
+    res.status(401).json({
+      error: "Invalid token or authentication failed",
+      details: error.message,
+    });
+  }
 });
 
 // Middleware de tratamento de erros
