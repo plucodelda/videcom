@@ -6,32 +6,53 @@ const app = express();
 app.use(express.json());
 
 // Configuração base da API VRS
-const VRS_BASE_URL = "https://customertest.videcom.com"; // Substitua pela URL real
+const VRS_BASE_URL =
+  "https://customertest.videcom.com/fastjet/vrsxmlservice/vrsxmlwebservice3.asmx";
+const VRS_ENDPOINT = "PostVRSCommand";
 const DEFAULT_HEADERS = {
-  "Content-Type": "application/xml",
+  "Content-Type": "text/xml; charset=utf-8",
   Accept: "application/xml",
+  SOAPAction: '"http://tempuri.org/PostVRSCommand"',
 };
 
-// Função auxiliar para construir mensagem XML
-function buildVRSMessage(token, command) {
-  return `<msg>
-        <Token>${token}</Token>
-        <Command>${command}</Command>
-    </msg>`;
+// Função auxiliar para construir mensagem SOAP XML
+function buildSOAPMessage(token, command) {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+               xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <PostVRSCommand xmlns="http://tempuri.org/">
+      <msg>&lt;msg&gt;
+        &lt;Token&gt;${token}&lt;/Token&gt;
+        &lt;Command&gt;${command}&lt;/Command&gt;
+      &lt;/msg&gt;</msg>
+    </PostVRSCommand>
+  </soap:Body>
+</soap:Envelope>`;
 }
 
 // Função auxiliar para fazer requisições à API VRS
 async function sendVRSCommand(token, command) {
   try {
-    const xmlMessage = buildVRSMessage(token, command);
+    const soapMessage = buildSOAPMessage(token, command);
     const response = await axios.post(
-      `${VRS_BASE_URL}/RunVRSCommand`,
-      xmlMessage,
+      `${VRS_BASE_URL}/${VRS_ENDPOINT}`,
+      soapMessage,
       {
         headers: DEFAULT_HEADERS,
       }
     );
-    return response.data;
+
+    // Parse da resposta SOAP para extrair o conteúdo XML interno
+    const parser = new xml2js.Parser({ explicitArray: false });
+    const soapResult = await parser.parseStringPromise(response.data);
+    const vrsResponse =
+      soapResult["soap:Envelope"]["soap:Body"]["PostVRSCommandResponse"][
+        "PostVRSCommandResult"
+      ];
+
+    return vrsResponse;
   } catch (error) {
     throw new Error(`VRS API Error: ${error.message}`);
   }
@@ -270,7 +291,15 @@ app.use((error, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`VRS XML Service API running on port ${PORT}`);
+  console.log(`Connected to: ${VRS_BASE_URL}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
+  console.log(`\nAPI Documentation:`);
+  console.log(`POST /api/bookings - Create new booking`);
+  console.log(`GET /api/bookings/:rloc - Retrieve booking`);
+  console.log(`PUT /api/bookings/:rloc/remarks - Add remark to booking`);
+  console.log(`POST /api/vrs/command - Execute custom VRS command`);
+  console.log(`GET /api/flights/search - Search flights`);
+  console.log(`POST /api/bookings/:rloc/flights - Add flight to booking`);
 });
 
 module.exports = app;
