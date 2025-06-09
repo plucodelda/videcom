@@ -15,8 +15,28 @@ const DEFAULT_HEADERS = {
   SOAPAction: '"http://videcom.com/PostApisData"',
 };
 
+// Função para mapear erros VRS
+function getVRSErrorMessage(errorCode) {
+  const vrsErrorCodes = {
+    "Error 101": "Not HTTPS - API must be called over HTTPS",
+    "Error 102": "No Token - Token is missing or empty",
+    "Error 103": "Invalid Token - Token is not valid or expired",
+    "Error 104": "Invalid Agent sine - Agent signature is invalid",
+    "Error 105": "No IP configured for Agent - IP address not configured",
+    "Error 106": "Invalid IP - IP address not authorized",
+    "Error 107": "ApiIpAddress missing from Agent table - Configuration issue",
+  };
+
+  return vrsErrorCodes[errorCode] || `Unknown VRS error: ${errorCode}`;
+}
+
 // Função auxiliar para construir mensagem SOAP XML
 function buildSOAPMessage(token, command) {
+  // Validar token
+  if (!token || token.trim() === "") {
+    throw new Error("Token is required and cannot be empty");
+  }
+
   // Escapar caracteres especiais no comando
   const escapedCommand = command
     .replace(/&/g, "&amp;")
@@ -25,13 +45,16 @@ function buildSOAPMessage(token, command) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 
+  // Construir a mensagem interna sem double encoding
+  const innerMsg = `<msg><Token>${token}</Token><Command>${escapedCommand}</Command></msg>`;
+
   return `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
                xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
                xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <PostApisData xmlns="http://videcom.com/">
-      <msg>&lt;msg&gt;&lt;Token&gt;${token}&lt;/Token&gt;&lt;Command&gt;${escapedCommand}&lt;/Command&gt;&lt;/msg&gt;</msg>
+      <msg><![CDATA[${innerMsg}]]></msg>
     </PostApisData>
   </soap:Body>
 </soap:Envelope>`;
@@ -220,11 +243,32 @@ function extractRLOC(response) {
 
 // Middleware para validação de token
 function validateToken(req, res, next) {
-  const token =
-    req.headers.authorization?.replace("Bearer ", "") || req.body.token;
+  let token =
+    req.headers.authorization?.replace("Bearer ", "") ||
+    req.headers.authorization?.replace("bearer ", "") ||
+    req.body.token ||
+    req.query.token;
+
   if (!token) {
-    return res.status(401).json({ error: "Token is required" });
+    return res.status(401).json({
+      error: "Token is required",
+      hint: "Send token via Authorization header (Bearer TOKEN) or in request body/query",
+    });
   }
+
+  // Limpar token de espaços extras
+  token = token.trim();
+
+  if (token === "") {
+    return res.status(401).json({
+      error: "Token cannot be empty",
+    });
+  }
+
+  console.log(
+    "Using token:",
+    token.substring(0, 10) + "..." + token.substring(token.length - 5)
+  );
   req.token = token;
   next();
 }
@@ -252,7 +296,22 @@ app.post("/api/bookings", validateToken, async (req, res) => {
     // Comando VRS para criar PNR com nome e email
     const command = `-1${passengerName}^9-1E*${email}^e*r~x`;
 
-    const response = await sendVRSCommand(req.token, command);
+    // Verificar se há erro na resposta antes de processar
+    if (
+      typeof response === "object" &&
+      response._ &&
+      response._.includes("Error")
+    ) {
+      return res.status(400).json({
+        error: "VRS API Error",
+        vrsError: response._,
+        details: getVRSErrorMessage(response._),
+        hint:
+          response._ === "Error 102"
+            ? "Check if your token is valid and properly formatted"
+            : null,
+      });
+    }
 
     // Tentar fazer parse da resposta se for XML
     let parsedResponse = response;
@@ -544,6 +603,101 @@ app.post("/api/auth/validate", validateToken, async (req, res) => {
 
     const response = await sendVRSCommand(req.token, validationCommand);
 
+    // Verificar se há erro na resposta
+    if (
+      typeof response === "object" &&
+      response._ &&
+      response._.includes("Error")
+    ) {
+      return res.status(401).json({
+        error: "Invalid token or authentication failed",
+        vrsError: response._,
+        details: getVRSErrorMessage(response._),
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Token is valid",
+      response: response,
+    });
+  } catch (error) {
+    res.status(401).json({
+      error: "Invalid token or authentication failed",
+      details: error.message,
+    });
+  }
+});
+
+// 10. Endpoint para debug do token e SOAP message
+app.post("/api/debug/soap", validateToken, async (req, res) => {
+  try {
+    const { command = "I" } = req.body; // Comando de info por padrão
+
+    const soapMessage = buildSOAPMessage(req.token, command);
+
+    res.json({
+      success: true,
+      token:
+        req.token.substring(0, 10) +
+        "..." +
+        req.token.substring(req.token.length - 5),
+      command: command,
+      soapMessage: soapMessage,
+      messageLength: soapMessage.length,
+      vrsEndpoint: VRS_BASE_URL,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to build SOAP message",
+      details: error.message,
+    });
+  }
+});
+
+// 11. Endpoint para testar comando básico sem parse complexo
+app.post("/api/vrs/simple-test", validateToken, async (req, res) => {
+  try {
+    const testCommand = "I"; // Comando de informação básica
+
+    const soapMessage = buildSOAPMessage(req.token, testCommand);
+
+    console.log("Testing with token:", req.token.substring(0, 10) + "...");
+    console.log("SOAP Message:", soapMessage);
+
+    const response = await axios.post(VRS_BASE_URL, soapMessage, {
+      headers: DEFAULT_HEADERS,
+      timeout: 30000,
+      validateStatus: function (status) {
+        return status < 600;
+      },
+    });
+
+    console.log("Raw response:", response.data);
+
+    res.json({
+      success: response.status < 400,
+      status: response.status,
+      statusText: response.statusText,
+      response: response.data,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Simple test error:", error.message);
+    res.status(500).json({
+      error: "Simple test failed",
+      details: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+app.post("/api/auth/validate", validateToken, async (req, res) => {
+  try {
+    // Comando mínimo para validar token
+    const validationCommand = "I"; // Info command
+
+    const response = await sendVRSCommand(req.token, validationCommand);
+
     res.json({
       success: true,
       message: "Token is valid",
@@ -591,6 +745,9 @@ app.listen(PORT, () => {
   console.log(`POST /api/vrs/command - Execute custom VRS command`);
   console.log(`GET /api/flights/search - Search flights`);
   console.log(`POST /api/bookings/:rloc/flights - Add flight to booking`);
+  console.log(`POST /api/debug/soap - Debug SOAP message generation`);
+  console.log(`POST /api/vrs/simple-test - Simple VRS connection test`);
+  console.log(`POST /api/auth/validate - Validate token`);
 });
 
 module.exports = app;
