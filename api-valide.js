@@ -21,7 +21,7 @@ app.get("/call-soap-api", async (req, res) => {
 
   try {
     const { data } = await axios.post(
-      "https://customertest.videcom.com/fastjet/vrsxmlservice/vrsxmlwebservice3.asmx",
+      "https://customertest3.videcom.com/fastjet/vrsxmlservice/vrsxmlwebservice3.asmx",
       soapEnvelope,
       {
         headers: {
