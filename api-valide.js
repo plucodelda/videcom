@@ -14,8 +14,8 @@ app.get("/call-soap-api", async (req, res) => {
                  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
                  xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
     <soap:Body>
-      <Command xmlns="http://videcom.com/">E7ATVw5LGLMCx96JJ9RDM30KwC3xc746/XtetqSBOwI=</Command>
-      <Token xmlns="http://videcom.com/">user</Token>
+      <Command xmlns="http://videcom.com/">user</Command>
+      <Token xmlns="http://videcom.com/">E7ATVw5LGLMCx96JJ9RDM30KwC3xc746/XtetqSBOwI=</Token>
     </soap:Body>
   </soap:Envelope>`;
 
