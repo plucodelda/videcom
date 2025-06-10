@@ -115,7 +115,7 @@ async function sendVRSCommand(token, command) {
 // Middleware para validação de token
 function validateToken(req, res, next) {
   const token =
-    req.headers.authorization?.replace("Bearer ", "") || req.body.token;
+    req.headers.authorization?.replace("Bearer ", "b") || req.body.token;
   if (!token) {
     return res.status(401).json({ error: "Token is required" });
   }

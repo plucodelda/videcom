@@ -18,6 +18,7 @@
   },
   "scripts": {
     "dev-deep": "nodemon deepseek.js",
+    "dev-s": "nodemon SOAP.js",
     "dev-api": "nodemon api-valide.js",
     "dev-claudes": "nodemon claude-soluction",
     "dev-booking": "nodemon bookings.js",
@@ -25,7 +26,7 @@
     "dev-c": "nodemon claude-second-soluction.js",
     "dev-claude": "nodemon claude-solucation",
     "dev": "nodemon src/main/server",
-    "dev-auth": "nodemon videcom-auth.js",
+    "dev-auth": "nodemon SOAP.jsnpm run SOAP.js",
     "dev2": "nodemon visbility.js",
     "dev-vsblt": "nodemon visibility.js",
     "dev-pnr": "nodemon PNR-com-nome-email.js",
