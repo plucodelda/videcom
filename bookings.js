@@ -25,7 +25,7 @@ const VRS_CONFIG = {
 
 // Códigos de erro VRS
 const VRS_ERROR_CODES = {
-  "Error 101": "Not HTTPS - API must be called over HTTPS",
+  "Error 101": "Not HTTPS - API must be called over HTTPs",
   "Error 102": "No Token - Token is missing or empty",
   "Error 103": "Invalid Token - Token is not valid or expired",
   "Error 104": "Invalid Agent sine - Agent signature is invalid",
