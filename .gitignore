@@ -16,7 +16,7 @@ dist.zip
 docker
 node_modules
 ./src/infra/uploads
-
+soap-data.js
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 

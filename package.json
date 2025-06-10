@@ -1,9 +1,12 @@
 {
   "dependencies": {
     "axios": "^1.9.0",
+    "cor": "^0.0.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "morgan": "^1.10.0",
+    "multer": "^2.0.1",
     "soap": "^1.1.11",
     "xml2js": "^0.6.2"
   },
@@ -15,6 +18,8 @@
   },
   "scripts": {
     "dev-claudes": "nodemon claude-soluction",
+    "dev-booking": "nodemon bookings.js",
+    "dev-new": "nodemon new-api.js",
     "dev-c": "nodemon claude-second-soluction.js",
     "dev-claude": "nodemon claude-solucation",
     "dev": "nodemon src/main/server",

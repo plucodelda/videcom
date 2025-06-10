@@ -7,12 +7,12 @@ app.use(express.json());
 
 // Configuração base da API VRS
 const VRS_BASE_URL =
-  "https://customertest.videcom.com/fastjet/vrsxmlservice/vrsxmlwebservice3.asmx";
+  "https://customertest.videcom.com/fastjet/VRSXMLService/VRSXMLWebservice3.asmx";
 const VRS_ENDPOINT = "PostVRSCommand";
 const DEFAULT_HEADERS = {
   "Content-Type": "text/xml; charset=utf-8",
   Accept: "application/xml",
-  SOAPAction: '"http://videcom.com/PostApisData"',
+  SOAPAction: "http://videcom.com/PostVRSCommand",
 };
 
 // Função para mapear erros VRS
