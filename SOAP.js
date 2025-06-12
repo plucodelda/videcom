@@ -202,32 +202,36 @@ async function sendVRSCommand(token, command) {
 }
 
 function validateToken(req, res, next) {
-  let token =
-    req.headers.authorization?.replace("Bearer ", "") ||
-    req.headers.authorization?.replace("bearer ", "") ||
-    req.body.token ||
-    req.query.token;
+  // Extração robusta do token de múltiplas fontes
+  const token =
+    req.headers.authorization?.replace(/^bearer\s+/i, "") ||
+    req.body?.token ||
+    req.query?.token;
 
-  if (!token) {
+  // Debug detalhado (remova em produção)
+  console.log("Token extraction debug:", {
+    authHeader: req.headers.authorization,
+    bodyToken: req.body?.token,
+    queryToken: req.query?.token,
+    finalToken: token,
+  });
+
+  if (!token || token.trim() === "") {
     return res.status(401).json({
-      error: "Token is required",
-      hint: "Send token via Authorization header (Bearer TOKEN) or in request body/query",
+      error: "Token inválido",
+      details: {
+        length: token?.length,
+        firstChars: token?.substring(0, 5),
+        receivedFrom: {
+          headers: !!req.headers.authorization,
+          body: !!req.body?.token,
+          query: !!req.query?.token,
+        },
+      },
     });
   }
 
-  token = token.trim();
-
-  if (token === "") {
-    return res.status(401).json({
-      error: "Token cannot be empty",
-    });
-  }
-
-  console.log(
-    "Using token:",
-    token.substring(0, 10) + "..." + token.substring(token.length - 5)
-  );
-  req.token = token;
+  req.token = token.trim();
   next();
 }
 
