@@ -1,0 +1,26 @@
+curl -X POST https://customertest.videcom.com/fastjet/vrsxmlservice/vrsxmlwebservice3.asmx/PostVRSCommand \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d 'Token=E7ATVw5LGLMCx96JJ9RDM30KwC3xc746/XtetqSBOwI=&Command=A16JULLOSABV[SalesCity=LOS,VARS=True,ClassBands=True,StartCity=LOS,SingleSeg=s,FGNoAv=True,qtyseats=1,journey=LOS-ABV]'
+
+
+VOO DISPONIVEL PARA O DIA DE HOJE:
+
+curl -X POST https://customertest.videcom.com/fastjet/vrsxmlservice/vrsxmlwebservice3.asmx/PostVRSCommand \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d 'Token=E7ATVw5LGLMCx96JJ9RDM30KwC3xc746/XtetqSBOwI=&Command=A16JULLOSABV[SalesCity=LOS,VARS=True,ClassBands=True,StartCity=LOS,SingleSeg=s,FGNoAv=True,qtyseats=1,journey=LOS-ABV]'
+
+
+curl -X POST https://customertest.videcom.com/fastjet/vrsxmlservice/vrsxmlwebservice3.asmx \
+  -H "Content-Type: text/xml; charset=utf-8" \
+  -H "SOAPAction: http://videcom.com/PostVRSCommand" \
+  -d '<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <msg xmlns="http://videcom.com/">
+      <Token>E7ATVw5LGLMCx96JJ9RDM30KwC3xc746/XtetqSBOwI=</Token>
+      <Command>A13JULLOSABV[SalesCity=LOS,qtyseats=1,VARS=True,journey=LOS-ABV]</Command>
+    </msg>
+  </soap:Body>
+</soap:Envelope>'

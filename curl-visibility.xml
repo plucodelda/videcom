@@ -1,0 +1,48 @@
+curl -X POST \
+  https://customer3.videcom.com/fastjet/vrsxmlservice/VrsXmlWebService3.asmx \
+  -H "Content-Type: text/xml; charset=utf-8" \
+  -H "Host: customer3.videcom.com" \
+  -H "SOAPAction: http://videcom.com/RunVRSCommand" \
+  -d '<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+    <msg xmlns="http://videcom.com/">
+    <Token>E7ATVw5LGLMCx96JJ9RDM30KwC3xc746/XtetqSBOwI=</Token>
+    <Command>A20JULLOSABV[SalesCity=LOS,VARS=True,ClassBands=True,StartCity=LOS,SingleSeg=s,FGNoAv=True,qtyseats=1,journey=LOS-ABV]</Command>
+    </msg>
+    </soap:Body>
+</soap:Envelope>'
+
+
+Segunda opção:
+
+curl -v -X POST \
+  https://customer3.videcom.com/fastjet/vrsxmlservice/vrsxmlwebservice3.asmx \
+  -H "Content-Type: text/xml; charset=utf-8" \
+  -H "SOAPAction: http://videcom.com/PostVRSCommand" \
+  -d '<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <msg xmlns="http://videcom.com/">
+      <Token>E7ATVw5LGLMCx96JJ9RDM30KwC3xc746/XtetqSBOwI=</Token>
+      <Command>A160JULLOSABV[SalesCity=LOS,VARS=True,ClassBands=True,StartCity=LOS,SingleSeg=s,FGNoAv=True,qtyseats=1,journey=LOS-ABV]</Command>
+    </msg>
+  </soap:Body>
+</soap:Envelope>'
+
+
+ curl -X POST "https://customertest.videcom.com/fastjet/VRSXMLService/VRSXMLWebservice3.asmx"   -H "Content-Type: text/xml; charset=utf-8"   --data '<?xml version="1.0" encoding="utf-8"?>
+ <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+              xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+   <soap:Body>
+     <msg xmlns="http://videocom.com/">
+          <Token>E7ATvWsGLMCx96J9RDM30KwC3xc746/XttetqSBOwI=</Token>
+        <Command>zuser</Command>
+       </msg>
+    </soap:Body>
+  </soap:Envelope>'

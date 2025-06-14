@@ -1,19 +1,30 @@
 const express = require("express");
 const xml2js = require("xml2js");
-const app = express();
 const axios = require("axios");
 
+const app = express();
 app.use(express.json());
 
 const VRS_BASE_URL =
   "https://customertest.videcom.com/fastjet/VRSXMLService/VRSXMLWebservice3.asmx";
-const VRVRS_ENDPOINT = "PostVRSCommand";
+
 const DEFAULT_HEADERS = {
   "Content-Type": "text/xml; charset=utf-8",
   Accept: "application/xml",
   SOAPAction: "http://videcom.com/PostVRSCommand",
 };
 
+// Escapar XML
+function escapeXml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+// Mapear mensagens de erro
 function getVRSErrorMessage(errorCode) {
   const vrsErrorCodes = {
     "Error 101": "Not HTTPS - API must be called over HTTPS",
@@ -24,24 +35,19 @@ function getVRSErrorMessage(errorCode) {
     "Error 106": "Invalid IP - IP address not authorized",
     "Error 107": "ApiIpAddress missing from Agent table - Configuration issue",
   };
-
   return vrsErrorCodes[errorCode] || `Unknown VRS error: ${errorCode}`;
 }
 
+// Construir SOAP com token e comando
 function buildSOAPMessage(token, command) {
-  // Validar token
   if (!token || token.trim() === "") {
     throw new Error("Token is required and cannot be empty");
   }
 
-  const escapedCommand = command
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+  const escapedCommand = escapeXml(command);
+  const escapedToken = escapeXml(token);
 
-  const innerMsg = `<msg><Token>${token}</Token><Command>${escapedCommand}</Command></msg>`;
+  const innerMsg = `<msg><Token><![CDATA[${escapedToken}]]></Token><Command>${escapedCommand}</Command></msg>`;
 
   return `<?xml version="1.0" encoding="utf-8"?>
   <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
@@ -55,195 +61,103 @@ function buildSOAPMessage(token, command) {
   </soap:Envelope>`;
 }
 
+// Enviar comando SOAP para o VRS
 async function sendVRSCommand(token, command) {
-  try {
-    const soapMessage = buildSOAPMessage(token, command);
+  const soapMessage = buildSOAPMessage(token, command);
+  console.log("SOAP Message:", soapMessage);
 
-    console.log("Sending SOAP request to:", `${VRS_BASE_URL}`);
-    console.log("Command:", command);
-    console.log("SOAP Message:", soapMessage);
+  const response = await axios.post(VRS_BASE_URL, soapMessage, {
+    headers: DEFAULT_HEADERS,
+    timeout: 30000,
+    validateStatus: (status) => status < 600,
+  });
 
-    const response = await axios.post(VRS_BASE_URL, soapMessage, {
-      headers: DEFAULT_HEADERS,
-      timeout: 30000, // 30 segundos timeout
-      validateStatus: function (status) {
-        return status < 600; // Aceita qualquer status < 600 para debug
-      },
-    });
+  const parser = new xml2js.Parser({
+    explicitArray: false,
+    mergeAttrs: true,
+    normalize: true,
+    normalizeTags: true,
+    trim: true,
+  });
 
-    console.log("Response status:", response.status);
-    console.log("Response headers:", response.headers);
-    console.log("Raw response data:", response.data);
+  const parsed = await parser.parseStringPromise(response.data);
 
-    if (response.status >= 400) {
-      throw new Error(
-        `HTTP ${response.status}: ${response.statusText}\nResponse: ${response.data}`
-      );
-    }
+  let result = null;
+  const paths = [
+    [
+      "soap:envelope",
+      "soap:body",
+      "postapisdataresponse",
+      "postapisdataresult",
+    ],
+    ["Envelope", "Body", "PostApisDataResponse", "PostApisDataResult"],
+  ];
 
-    // Parse da resposta SOAP para extrair o conteúdo XML interno
-    const parser = new xml2js.Parser({
-      explicitArray: false,
-      mergeAttrs: true,
-      normalize: true,
-      normalizeTags: true,
-      trim: true,
-      ignoreAttrs: false,
-    });
-
-    const soapResult = await parser.parseStringPromise(response.data);
-    console.log("Parsed SOAP result:", JSON.stringify(soapResult, null, 2));
-
-    // Navegar pela estrutura SOAP response com mais robustez
-    let vrsResponse = null;
-
-    // Tentar diferentes variações da estrutura SOAP
-    const possiblePaths = [
-      [
-        "soap:envelope",
-        "soap:body",
-        "postapisdataresponse",
-        "postapisdataresult",
-      ],
-      ["envelope", "body", "postapisdataresponse", "postapisdataresult"],
-      [
-        "soap:envelope",
-        "soap:body",
-        "PostApisDataResponse",
-        "PostApisDataResult",
-      ],
-      ["Envelope", "Body", "PostApisDataResponse", "PostApisDataResult"],
-      // Adicionar mais variações conforme necessário
-    ];
-
-    for (const path of possiblePaths) {
-      let current = soapResult;
-      let found = true;
-
-      for (const key of path) {
-        if (current && current[key]) {
-          current = current[key];
-        } else {
-          found = false;
-          break;
-        }
-      }
-
-      if (found && current) {
-        vrsResponse = current;
-        console.log("Found VRS response using path:", path.join("."));
+  for (const path of paths) {
+    let current = parsed;
+    let found = true;
+    for (const key of path) {
+      if (current && current[key]) {
+        current = current[key];
+      } else {
+        found = false;
         break;
       }
     }
-
-    // Se não encontrou usando os caminhos conhecidos, tentar extrair manualmente
-    if (!vrsResponse) {
-      console.log(
-        "Could not find response using standard paths, analyzing structure..."
-      );
-
-      // Log da estrutura completa para debug
-      console.log("Full SOAP structure keys:", Object.keys(soapResult));
-
-      // Tentar encontrar qualquer elemento que contenha "result" ou similar
-      function findResult(obj, path = []) {
-        if (typeof obj === "object" && obj !== null) {
-          for (const [key, value] of Object.entries(obj)) {
-            const currentPath = [...path, key];
-
-            if (key.toLowerCase().includes("result")) {
-              console.log("Found potential result at:", currentPath.join("."));
-              return value;
-            }
-
-            const nested = findResult(value, currentPath);
-            if (nested) return nested;
-          }
-        }
-        return null;
-      }
-
-      vrsResponse = findResult(soapResult);
+    if (found && current) {
+      result = current;
+      break;
     }
-
-    // Se ainda não encontrou, usar a resposta bruta
-    if (!vrsResponse) {
-      console.log("Using raw response data");
-      vrsResponse = response.data;
-    }
-
-    console.log("Final VRS response:", vrsResponse);
-    return vrsResponse;
-  } catch (error) {
-    console.error("VRS API Error Details:", {
-      message: error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      headers: error.response?.headers,
-    });
-
-    // Mapear erros VRS específicos
-    if (error.response?.status === 500) {
-      const errorData = error.response.data;
-      if (typeof errorData === "string" && errorData.includes("soap:Fault")) {
-        throw new Error(`SOAP Fault: ${errorData}`);
-      }
-    }
-
-    throw new Error(`VRS API Error: ${error.message}`);
   }
+
+  return result || response.data;
 }
 
+// Middleware para extrair o token do header/body/query
 function validateToken(req, res, next) {
   let token =
-    req.headers.authorization?.replace("Bearer ", "") ||
-    req.headers.authorization?.replace("bearer ", "") ||
+    req.headers.authorization?.replace(/Bearer /i, "") ||
     req.body.token ||
     req.query.token;
 
-  if (!token) {
+  if (!token || token.trim() === "") {
     return res.status(401).json({
       error: "Token is required",
-      hint: "Send token via Authorization header (Bearer TOKEN) or in request body/query",
+      hint: "Send token via Authorization header (Bearer TOKEN) or in body/query",
     });
   }
 
-  // Limpar token de espaços extras
-  token = token.trim();
-
-  if (token === "") {
-    return res.status(401).json({
-      error: "Token cannot be empty",
-    });
-  }
-
-  console.log(
-    "Using token:",
-    token.substring(0, 10) + "..." + token.substring(token.length - 5)
-  );
-  req.token = token;
+  req.token = token.trim();
   next();
 }
 
+// Extrair RLOC da resposta (ajuste conforme estrutura do seu retorno)
+function extractRLOC(data) {
+  if (typeof data === "string") {
+    const match = data.match(/RLOC=([A-Z0-9]{6})/);
+    return match ? match[1] : null;
+  }
+  return null;
+}
+
+// Rota para criar reserva
 app.post("/api/bookings", validateToken, async (req, res) => {
+  const { passengerName, email, title = "MR" } = req.body;
+
+  if (!passengerName || !email) {
+    return res.status(400).json({
+      error: "passengerName and email are required",
+      example: {
+        passengerName: "Silva/JoaoMr",
+        email: "joao@email.com",
+        title: "MR",
+      },
+    });
+  }
+
+  const command = `-1${passengerName}^9-1E*${email}^e*r~x`;
+
   try {
-    const { passengerName, email, title = "MR" } = req.body;
-
-    if (!passengerName || !email) {
-      return res.status(400).json({
-        error: "Passenger name and email are required",
-        example: {
-          passengerName: "Silva/JoaoMr",
-          email: "joao.silva@email.com",
-          title: "MR",
-        },
-      });
-    }
-
-    const command = `-1${passengerName}^9-1E*${email}^e*r~x`;
-
-    // ✅ Aqui estava faltando esta linha!
     const response = await sendVRSCommand(req.token, command);
 
     if (
@@ -254,38 +168,25 @@ app.post("/api/bookings", validateToken, async (req, res) => {
       return res.status(400).json({
         error: "VRS API Error",
         vrsError: response._,
-        token: req.token,
         details: getVRSErrorMessage(response._),
-        hint:
-          response._ === "Error 102"
-            ? "Check if your token is valid and properly formatted"
-            : null,
       });
     }
 
     let parsedResponse = response;
     let rloc = null;
 
-    try {
-      if (typeof response === "string" && response.includes("<")) {
-        const parser = new xml2js.Parser({ explicitArray: false });
-        parsedResponse = await parser.parseStringPromise(response);
-      }
-
-      rloc = extractRLOC(response);
-    } catch (parseError) {
-      console.log(
-        "Could not parse response as XML, using raw response:",
-        parseError.message
-      );
+    if (typeof response === "string" && response.includes("<")) {
+      const parser = new xml2js.Parser({ explicitArray: false });
+      parsedResponse = await parser.parseStringPromise(response);
     }
+
+    rloc = extractRLOC(response);
 
     res.json({
       success: true,
       message: "Booking created successfully",
       data: parsedResponse,
-      rloc: rloc,
-      rawResponse: response,
+      rloc,
     });
   } catch (error) {
     res.status(500).json({
@@ -295,13 +196,11 @@ app.post("/api/bookings", validateToken, async (req, res) => {
   }
 });
 
+// Porta e inicialização
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`VRS XML Service API running on port ${PORT}`);
-  console.log(`Connected to: ${VRS_BASE_URL}`);
-  console.log(`Health check: http://localhost:${PORT}/api/health`);
-  console.log(`\nAPI Documentation:`);
-  console.log(`POST /api/bookings - Create new booking`);
+  console.log(`✅ API running on port ${PORT}`);
+  console.log(`POST /api/bookings`);
 });
 
 module.exports = app;
