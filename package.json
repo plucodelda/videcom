@@ -22,6 +22,7 @@
     "nodemon": "^3.1.10"
   },
   "scripts": {
+    "dev-f": "nodemon search-flight-json.js",
     "dev-flight": "nodemon search-flights.js",
     "dev-test": "nodemon test-api.js",
     "dev-cal": "nodemon calculadora.js",
