@@ -7,11 +7,13 @@
     "date-fns": "^4.1.0",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
     "fast-xml-parser": "^5.2.5",
     "morgan": "^1.10.0",
     "multer": "^2.0.1",
     "qs": "^6.14.0",
     "soap": "^1.1.12",
+    "uuid": "^11.1.0",
     "xml2js": "^0.6.2",
     "xmlbuilder2": "^3.1.1"
   },
@@ -24,6 +26,7 @@
   "scripts": {
     "dev-f": "nodemon search-flight-json.js",
     "dev-flight": "nodemon search-flights.js",
+    "dev-fl": "nodemon search-flight.js",
     "dev-test": "nodemon test-api.js",
     "dev-cal": "nodemon calculadora.js",
     "dev-videcom": "nodemon videcom.js",
