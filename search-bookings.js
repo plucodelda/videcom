@@ -1,6 +1,5 @@
 const express = require("express");
 const axios = require("axios");
-const xml2js = require("xml2js");
 const app = express();
 const port = 3000;
 
@@ -22,18 +21,28 @@ app.post("/send-command", async (req, res) => {
       }
     );
 
-    // Converte XML para JSON (se a resposta for XML)
-    if (response.headers["content-type"].includes("xml")) {
-      const parser = new xml2js.Parser({ explicitArray: false });
-      parser.parseString(response.data, (err, result) => {
-        if (err) {
-          console.error("Erro ao converter XML para JSON:", err);
-          return res.status(500).json({ error: "Erro ao converter resposta" });
-        }
-        res.json(result);
-      });
+    // Processa a resposta aninhada
+    if (response.data && response.data.string && response.data.string._) {
+      try {
+        // Parseia o JSON interno
+        const innerJson = JSON.parse(response.data.string._);
+
+        // Retorna o JSON parseado
+        res.json({
+          success: true,
+          data: innerJson,
+          metadata: {
+            xmlns: response.data.string.$.xmlns,
+          },
+        });
+      } catch (parseError) {
+        console.error("Erro ao parsear JSON interno:", parseError);
+        res.status(500).json({
+          error: "Erro ao processar a resposta",
+          originalResponse: response.data,
+        });
+      }
     } else {
-      // Se não for XML, retorna a resposta diretamente
       res.json(response.data);
     }
   } catch (error) {
