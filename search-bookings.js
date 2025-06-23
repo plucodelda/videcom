@@ -3,12 +3,9 @@ const axios = require("axios");
 const app = express();
 const port = 3000;
 
-// Middleware
-app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Rota para fazer a requisição POST e converter para JSON
-app.post("/send-command", async (req, res) => {
+app.post("/process-pnr", async (req, res) => {
   try {
     // Faz a requisição para o serviço VRS
     const response = await axios.post(
@@ -21,49 +18,29 @@ app.post("/send-command", async (req, res) => {
       }
     );
 
-    // Processa a resposta aninhada
-    if (response.data && response.data.string && response.data.string._) {
-      try {
-        // Parseia o JSON interno
-        const innerJson = JSON.parse(response.data.string._);
+    // Extrai o conteúdo XML e processa a string JSON interna
+    const xmlContent = response.data;
+    const jsonString = xmlContent.match(/<string[^>]*>([\s\S]*?)<\/string>/)[1];
+    const pnrData = JSON.parse(jsonString);
 
-        // Retorna o JSON parseado
-        res.json({
-          success: true,
-          data: innerJson,
-          metadata: {
-            xmlns: response.data.string.$.xmlns,
-          },
-        });
-      } catch (parseError) {
-        console.error("Erro ao parsear JSON interno:", parseError);
-        res.status(500).json({
-          error: "Erro ao processar a resposta",
-          originalResponse: response.data,
-        });
-      }
-    } else {
-      res.json(response.data);
-    }
+    // Retorna o JSON organizado
+    res.json({
+      success: true,
+      data: pnrData.PNR, // Acessa diretamente o objeto PNR
+      metadata: {
+        timestamp: new Date().toISOString(),
+        source: "VRS XML Service",
+      },
+    });
   } catch (error) {
-    console.error("Erro na requisição:", error);
+    console.error("Erro:", error);
     res.status(500).json({
-      error: "Erro ao processar a requisição",
-      details: error.message,
+      success: false,
+      error: error.message,
     });
   }
 });
 
-// Rota GET para teste
-app.get("/", (req, res) => {
-  res.json({
-    message: "API para enviar comandos VRS",
-    endpoints: {
-      POST: "/send-command",
-    },
-  });
-});
-
 app.listen(port, () => {
-  console.log(`Servidor rodando em http://localhost:${port}`);
+  console.log(`Servidor rodando na porta ${port}`);
 });
