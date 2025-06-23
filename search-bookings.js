@@ -7,10 +7,11 @@ app.use(express.json());
 
 app.post("/process-pnr", async (req, res) => {
   try {
+    const { bookingReference } = req.body;
     // Faz a requisição para o serviço VRS
     const response = await axios.post(
       "https://customertest.videcom.com/fastjet/vrsxmlservice/vrsxmlwebservice3.asmx/PostVRSCommand",
-      "Token=E7ATVw5LGLMCx96JJ9RDM30KwC3xc746/XtetqSBOwI=&Command=*ZZZB2L~x",
+      `Token=E7ATVw5LGLMCx96JJ9RDM30KwC3xc746/XtetqSBOwI=&Command=*${bookingReference}~x`,
       {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
