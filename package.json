@@ -24,6 +24,7 @@
     "nodemon": "^3.1.10"
   },
   "scripts": {
+    "dev-b": "nodemon search-bookings.js",
     "dev-f": "nodemon search-flight-json.js",
     "dev-flight": "nodemon search-flights.js",
     "dev-fl": "nodemon search-flight.js",
